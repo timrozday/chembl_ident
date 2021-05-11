@@ -104,7 +104,30 @@ class ChemblIndexes():
             self.chembl_id2mrn[chembl_id] = molregno
             self.mrn2chembl_id[molregno] = chembl_id
         
-        chembl_cursor.close
+        # fetch drugbase sources
+        
+        sql_query = (   
+                        "select MS.ID, MS.SOURCE "
+                        "from DRUGBASE.MOLECULE_SOURCE MS "
+                    )
+        chembl_cursor.execute(sql_query)
+
+        self.source_map = {}
+        for source_id, source in tqdm(chembl_cursor, desc='Drugbase source map'):
+            self.source_map[source_id] = source
+            
+        sql_query = (   
+                        "select MSM.MOLECULE_DICTIONARY_ID, MSM.MOLECULE_SOURCE_ID "
+                        "from DRUGBASE.MOLECULE_SOURCE_MAPPING MSM "
+                        "where MSM.REMOVED = 0 "
+                    )
+        chembl_cursor.execute(sql_query)
+
+        self.drugbase_id2source_id = defaultdict(set)
+        for drugbase_id, source_id in tqdm(chembl_cursor, desc='Drugbase source IDs'):
+            self.drugbase_id2source_id[drugbase_id].add(source_id)
+
+        self.drugbase_id2source_id = dict(self.drugbase_id2source_id)
         
         # fetch compound hierarchy
         
@@ -127,6 +150,8 @@ class ChemblIndexes():
         
         self.compound_parents = dict(self.compound_parents)
         self.compound_children = dict(self.compound_children)
+        
+        chembl_cursor.close()
     
     def save_indexes(self, data_dir=None):
         if data_dir is None:
@@ -144,6 +169,10 @@ class ChemblIndexes():
             pickle.dump({k.__tuple__():{v.__tuple__() for v in vs} for k,vs in self.compound_parents.items()}, f)
         with open(f"{data_dir}/compound_children.pkl", 'wb') as f:
             pickle.dump({k.__tuple__():{v.__tuple__() for v in vs} for k,vs in self.compound_children.items()}, f)
+        with open(f"{data_dir}/source_map.json", 'wt') as f:
+            json.dump(self.source_map, f)
+        with open(f"{data_dir}/drugbase_id2source_id.json", 'wt') as f:
+            json.dump({k:list(vs) for k,vs in self.drugbase_id2source_id.items()}, f)
                 
     def load_indexes(self, data_dir=None):
         if data_dir is None:
@@ -161,6 +190,10 @@ class ChemblIndexes():
             self.compound_parents = {ChemblIdent(*k):{ChemblIdent(*v) for v in vs} for k,vs in pickle.load(f).items()}
         with open(f"{data_dir}/compound_children.pkl", 'rb') as f:
             self.compound_children = {ChemblIdent(*k):{ChemblIdent(*v) for v in vs} for k,vs in pickle.load(f).items()}
+        with open(f"{data_dir}/source_map.json", 'rt') as f:
+            self.source_map = {int(k): v for k,v in json.load(f).items()}
+        with open(f"{data_dir}/drugbase_id2source_id.json", 'rt') as f:
+            self.drugbase_id2source_id = {int(k):set(vs) for k,vs in json.load(f).items()}
     
     def get_parents(self, obj=None, drugbase_id=None, molregno=None, chembl_id=None):
         if obj is None:
@@ -189,6 +222,12 @@ class ChemblIndexes():
     def get_chembl_id(self, molregno=None):
         if molregno in self.mrn2chembl_id:
             return self.mrn2chembl_id[molregno]
+    
+    def get_sources(self, drugbase_id):
+        if drugbase_id in self.drugbase_id2source_id: 
+            return {self.source_map[s] for s in self.drugbase_id2source_id[drugbase_id]}
+        else:
+            return set()
     
     def get_chembl_ident(self, molregno=None, drugbase_id=None, chembl_id=None):
         if molregno is None:
