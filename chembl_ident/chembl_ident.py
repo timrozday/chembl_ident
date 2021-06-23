@@ -104,6 +104,32 @@ class ChemblIndexes():
             self.chembl_id2mrn[chembl_id] = molregno
             self.mrn2chembl_id[molregno] = chembl_id
         
+        # fetch phase data
+        
+        sql_query = (   
+                        "select MD.MOLREGNO, MD.MAX_PHASE "
+                        "from CHEMBL.MOLECULE_DICTIONARY MD "
+                    )
+        chembl_cursor.execute(sql_query)
+
+        self.mrn2phase = {}
+        for molregno, phase in tqdm(chembl_cursor, desc='ChEMBL trial phase'):
+            if (molregno is None):
+                continue
+            self.mrn2phase[molregno] = phase
+            
+        sql_query = (   
+                        "select MD.ID, MD.HIGHEST_PHASE "
+                        "from DRUGBASE.MOLECULE_DICTIONARY MD "
+                    )
+        chembl_cursor.execute(sql_query)
+
+        self.drugbase_id2phase = {}
+        for drugbase_id, phase in tqdm(chembl_cursor, desc='Drugbase trial phase'):
+            if (drugbase_id is None):
+                continue
+            self.drugbase_id2phase[drugbase_id] = phase
+        
         # fetch drugbase sources
         
         sql_query = (   
@@ -173,6 +199,10 @@ class ChemblIndexes():
             json.dump(self.source_map, f)
         with open(f"{data_dir}/drugbase_id2source_id.json", 'wt') as f:
             json.dump({k:list(vs) for k,vs in self.drugbase_id2source_id.items()}, f)
+        with open(f"{data_dir}/mrn2phase.json", 'wt') as f:
+            json.dump(self.mrn2phase, f)
+        with open(f"{data_dir}/drugbase_id2phase.json", 'wt') as f:
+            json.dump(self.drugbase_id2phase, f)
                 
     def load_indexes(self, data_dir=None):
         if data_dir is None:
@@ -194,6 +224,10 @@ class ChemblIndexes():
             self.source_map = {int(k): v for k,v in json.load(f).items()}
         with open(f"{data_dir}/drugbase_id2source_id.json", 'rt') as f:
             self.drugbase_id2source_id = {int(k):set(vs) for k,vs in json.load(f).items()}
+        with open(f"{data_dir}/mrn2phase.json", 'rt') as f:
+            self.mrn2phase = {int(k):v for k,v in json.load(f).items()}
+        with open(f"{data_dir}/drugbase_id2phase.json", 'rt') as f:
+            self.drugbase_id2phase = {int(k):v for k,v in json.load(f).items()}
     
     def get_parents(self, obj=None, drugbase_id=None, molregno=None, chembl_id=None):
         if obj is None:
