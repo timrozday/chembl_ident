@@ -267,9 +267,11 @@ class ChemblIndexes():
         if obj is None:
             obj = self.get_chembl_ident(drugbase_id=drugbase_id, molregno=molregno, chembl_id=chembl_id)
         if obj:
+            phase1 = self.mrn2phase[obj.molregno] if obj.molregno in self.mrn2phase else None
+            phase2 = self.drugbase_id2phase[obj.drugbase_id] if obj.drugbase_id in self.drugbase_id2phase else None
             max_phase = max([
-                self.mrn2phase[obj.molregno] if obj.molregno in self.mrn2phase else -5, 
-                self.drugbase_id2phase[obj.drugbase_id] if obj.drugbase_id in self.drugbase_id2phase else -5, 
+                -5 if phase1 is None else phase1, 
+                -5 if phase2 is None else phase2, 
             ])
             if max_phase > -5:
                 return max_phase
