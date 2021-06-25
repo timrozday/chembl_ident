@@ -21,7 +21,7 @@ class ChemblIdent():
         return hash((self.chembl_id, self.drugbase_id, self.molregno))
     
     def __eq__(self, other):
-        return (self.chembl_id, self.drugbase_id, self.molregno) == (self.chembl_id, other.drugbase_id, other.molregno)
+        return (self.chembl_id, self.drugbase_id, self.molregno) == (other.chembl_id, other.drugbase_id, other.molregno)
     
     def __ne__(self, other):
         return not(self == other)
